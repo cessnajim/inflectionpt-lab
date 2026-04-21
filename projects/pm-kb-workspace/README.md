@@ -151,9 +151,9 @@ clear input/output contract.
   stages, emits a summary spreadsheet.
 - **Spreadsheet formatter.** Two output shapes (lean internal,
   full shared) sourced from the same canonical rocks document.
-- **Ticket-reader.** Chrome-MCP integration that reads subtask
-  pipeline stages from an authenticated browser session and
-  summarizes status across a batch of tickets.
+- **Ticket-reader.** Browser-automation integration that reads
+  status metadata from the operator's authenticated session in an
+  internal tracking tool and summarizes across a batch.
 - **Product-analysis vetting.** Cross-checks competitive/product
   analyses against the evidence index to flag claims that haven't
   been grounded.
