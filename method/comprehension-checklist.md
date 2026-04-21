@@ -61,18 +61,30 @@ project shipped without satisfying these, the claim doesn't apply.
       cross-checked against the actual infrastructure code (Terraform,
       CDK, IaC scripts, `lambda/`, `infrastructure/`, whatever exists).
       Re-run this check every time the deploy target moves.
+- [ ] **The IaC and the cloud account agree on what's deployed.** It
+      is not enough that `infrastructure/` and `lambda/` describe a
+      complete system. The cloud account itself has to actually
+      contain the resources those directories describe. `aws lambda
+      list-functions`, `aws s3 ls`, `aws cloudfront list-distributions`,
+      `aws ses list-identities` (or the equivalent for whatever cloud
+      and IaC tool the project uses) is a one-minute check that the
+      IaC isn't aspirational. Skipping it is how a `lambda/README.md`
+      ends up describing functions that have never existed.
 - [ ] **Every user-visible interaction has been tested end-to-end
       against production.** Not "the back-end is deployed," not "the
       form renders," not "it works in `npm run dev`." The submit
       button on the live site, with a real POST, returning the real
       success page. For any non-GET interaction (form submits, API
       calls, webhook receivers), `curl` against the live URL is part
-      of accepting the work. Both items above were added after the
-      [Cloudflare-Pages-vs-AWS-with-broken-forms](failure-log.md#public-readme-claimed-cloudflare-pages-while-the-contact-form-was-silently-404ing-in-production)
+      of accepting the work. The three items above were added after the
+      [Cloudflare-Pages-vs-AWS-with-no-back-end-at-all](failure-log.md#public-readme-claimed-cloudflare-pages-the-contact-form-has-actually-never-had-a-working-back-end-at-all)
       entry, where the docs claimed one architecture, the
-      infrastructure shipped a second, and the live site silently
-      404'd a third — and none of that surfaced for weeks because no
-      one had actually pressed the contact button.
+      infrastructure code claimed a second, the cloud account
+      contained a third (much smaller) reality, and the live site
+      silently 404'd. The three items chain: docs reconcile against
+      IaC; IaC reconciles against the cloud account; cloud account
+      reconciles against live behavior. Skip any link and the chain
+      breaks silently.
 
 ## Per-week checks (the ongoing practice)
 

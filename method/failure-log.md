@@ -191,7 +191,7 @@ guessing at the pattern.
 
 ---
 
-## Public README claimed Cloudflare Pages while the contact form was silently 404'ing in production
+## Public README claimed Cloudflare Pages; the contact form has actually never had a working back-end at all
 
 **What:** for several weeks the site README, this lab repo's
 `projects/inflectionpt-io/README.md`, and the curated entry for commit
@@ -207,82 +207,115 @@ Function files under `functions/api/*.ts` are inert leftover scaffolding
 from an earlier attempted hosting choice that was abandoned without
 removing the code or updating the docs.
 
-This was originally logged as a documentation bug. A direct production
-probe during the cleanup turned it into something worse: **the contact
-form and newsletter signup have been broken in production the entire
-time the AWS deploy has been live.** The form components POST to
-same-origin paths (`/api/contact`, `/api/subscribe`) that have no
-CloudFront behavior pointing anywhere — POSTs return CloudFront 403
-("distribution supports only cachable requests"), GETs return S3 404
-NoSuchKey. The Lambda functions in `lambda/` are deployed and
-functional but receive zero traffic from the live site. The wrong-
-deploy-target docs perfectly hid the wrong-form-wiring bug, because the
+This was logged in three escalating rounds during a single
+docs-cleanup pass, and each round corrected a wronger version of the
+last:
+
+**Round 1 (documentation drift).** The wording in the docs and commit
+message was wrong; the *implementation* was assumed to be on AWS as
+`infrastructure/README.md` claimed. Logged as "fix the words."
+
+**Round 2 (silent production breakage).** A direct `curl` against
+`https://inflectionpt.io/api/contact` returned CloudFront 403 for
+POSTs and S3 404 for GETs. The contact form and newsletter signup
+have been broken in production the entire time the AWS deploy has
+been live. Initially logged as: "the form components POST to
+same-origin `/api/*` paths that have no CloudFront behavior in front
+of them, but the Lambdas in `lambda/` are deployed and just
+disconnected — fix is to point the `action`s at the existing Lambda
+Function URLs."
+
+**Round 3 (the Lambdas don't exist either).** `aws lambda
+list-functions` against `us-east-1`, `us-east-2`, `us-west-1`, and
+`us-west-2` returned no `inflection*` / `contact` / `subscribe`
+matches. The `lambda/` directory is source code that was never
+deployed. There is no Lambda runtime to point form `action`s at; there
+are no Function URLs to capture. The `inflectionpt.io` SES identity
+*is* verified in `us-east-1` (so the email-send side is half-set-up),
+but no Lambda is configured to use it. The contact form has not had a
+working back-end *of any kind* since the site went live: not a
+Cloudflare Pages Function (the site isn't on Cloudflare Pages), not a
+Lambda (the Lambdas aren't deployed), not anything else. Pure 404.
+
+The wrong-deploy-target docs perfectly hid all of this, because the
 docs claimed an architecture (Cloudflare Pages Functions on the same
-origin as the site) where same-origin `/api/*` POSTs would actually
-have worked.
+origin as the site) under which the existing form `action="/api/*"`
+attributes would have actually worked. Anyone reading the README would
+have correctly concluded "this looks fine."
 
 The contradiction was sitting in the open the entire time: the site's
 own `infrastructure/README.md` documents the CloudFront → S3 pipeline
-in detail, including the distribution ID and the IaC-lite shell scripts
-that provisioned it, and `lambda/README.md` documents the SES + Lambda
-Function URL form handlers. No one — agent or operator — had
+in detail (including the distribution ID and the IaC-lite shell scripts
+that provisioned it). `lambda/README.md` claims the Lambdas are
+deployed and explains the SES + Function URL design. AWS itself, when
+asked, said the Lambdas don't exist. No one — agent or operator — had
 cross-read the high-level README against the infrastructure
-subdirectories, and no one had probed the live form endpoints.
+subdirectories, no one had probed the live form endpoints, and no one
+had asked AWS what was actually running.
 
 **How surfaced:** operator, while reviewing the lab repo and the live
-About page after a recent push, asked: "you need to review where this
-gets deployed and change any docs that are wrong." That single sentence
-forced the cross-check, which surfaced the documentation drift. Then
-"let's clean up the docs to reflect reality" forced a `curl` against
-production, which surfaced the silent breakage.
+About page, asked in sequence:
 
-**Caught by:** operator. The agent could have probed production at any
-point in the last several weeks and didn't.
+1. "You need to review where this gets deployed and change any docs
+   that are wrong." → surfaced the documentation drift (round 1).
+2. "Let's clean up the docs to reflect reality." → forced a `curl`
+   against production, which surfaced the silent 404 (round 2).
+3. "Search for the AWS — you've done the AWS deploy." → forced an
+   `aws lambda list-functions` query, which surfaced that the Lambdas
+   don't exist at all (round 3).
+
+Each prompt was one or two sentences. Each one peeled back another
+layer of "what does this actually do." The agent could have asked any
+of these questions itself at any point in the last several weeks and
+didn't.
+
+**Caught by:** operator, three times in three rounds in a single
+session.
 
 **Fix:**
 
-- *Documentation:* rewrite the Stack / Build / Deploy / Forms sections
-  of the site README, the Stack section of
-  `projects/inflectionpt-io/README.md` in the lab, and the curated
-  `f8178b6` entry in the commit log to describe what actually shipped
-  (and, where applicable, what is currently broken). Add a curator's
-  note on the commit-log entry acknowledging that the original git
-  commit message was itself wrong. Fix the About page's tech stack
-  list (which had named "Cloudflare Workers" — also untrue).
-- *Live forms:* update `src/components/ContactForm.astro` and
-  `src/components/NewsletterForm.astro` to POST directly to the
-  `*.lambda-url.us-east-1.on.aws` URLs of the deployed Lambda
-  functions (matching what `lambda/README.md` already claims is
-  happening, and consistent with the Lambdas' use of absolute redirect
-  URLs). Then delete `functions/api/*.ts` since the Cloudflare Pages
-  Function path is permanently dead under the AWS deploy. This fix is
-  not in scope for this docs-cleanup pass — the docs now describe what
-  needs to change and the source README has a "Form wiring" section
-  with the two viable resolutions and the trade-off.
+- *Documentation* (done in this cleanup pass): rewrite the Stack /
+  Build / Deploy / Form-wiring sections of the site README, the
+  Stack section of `projects/inflectionpt-io/README.md` in the lab,
+  the curated `f8178b6` entry in the commit log, and the About page's
+  tech stack list. The site README's "Form wiring" section now
+  describes the actual three-layer absence (no Pages runtime, no
+  Lambda runtime, no `/api/*` CloudFront behavior) and lists the four
+  ordered steps required to make the form work.
+- *Live forms* (not in this pass): deploy the two Lambdas as Function
+  URLs in `us-east-1` against the verified SES identity, add an
+  idempotent `infrastructure/scripts/05-deploy-form-lambdas.sh`,
+  rewire the form `action`s to the captured Function URLs, delete the
+  `functions/` directory, and probe with `curl` against production
+  to confirm 303s back to `/thanks/` and `/subscribed/`.
 
-**Lesson:** two compounding gaps. (1) The comprehension checklist had
-per-diff and per-feature items but no "does this actually run end to
-end against the live origin?" item — there's a difference between
-"the Lambda is deployed" and "the form actually reaches the Lambda,"
-and only the second one matters. (2) The checklist also had no
-"the README reconciles against the infrastructure" item — that gap
-let a high-level README narrate one architecture while the
-implementation shipped another, for weeks, in public. The
-[comprehension-checklist](comprehension-checklist.md) now has the
-README-reconciliation item; an end-to-end-against-prod item should
-follow, because reconciling docs against IaC is necessary but not
-sufficient — the live behavior is the actual ground truth.
+**Lesson:** the same gap, hit three times in one hour:
 
-There's a meta-version of this that's worth saying directly: an AI
-agent asked to write a README for a project will happily restate
-whatever the previous README claimed, and will happily ship form
-components whose `action` paths look right against the *previous*
-hosting target without noticing those paths don't route under the
-*current* hosting target. The fix is human cross-checking against the
-infrastructure *and* against production, not better prompts. "Did you
-test it against the live site" is the question that closes the loop,
-and it's specifically the question that doesn't get asked when the
-docs already claim it works.
+1. Docs do not reconcile against the infrastructure code. (Caught by
+   round 1.)
+2. Infrastructure code does not reconcile against the live cloud
+   resources. (Caught by round 3 — `lambda/README.md` claimed
+   deployment that hadn't happened.)
+3. Neither of the above is the same as "the live behavior was
+   tested." (Caught by round 2.)
+
+All three need to be checked, in that order, before claiming a feature
+works. The [comprehension-checklist](comprehension-checklist.md) now
+has items for the first and third; the second is implied by the third
+and probably should be split out as its own item ("the IaC and the
+cloud account agree on what's actually deployed").
+
+The meta-lesson is the one this failure log is most useful for: an AI
+agent will happily generate a README that says a thing is deployed,
+will happily generate a `lambda/README.md` that says a thing is
+deployed, will happily generate form components that POST to a path
+the README implies will route, and will keep agreeing with itself
+across all three artifacts forever. None of those three artifacts is
+the actual cloud account. The cloud account is the only ground truth.
+Asking "what's actually in the account" is not something an AI agent
+spontaneously does — it has to be prompted, and on a single project
+it had to be prompted three times in a row to chase the drift down to
+the real bottom.
 
 ---
 
@@ -291,15 +324,19 @@ docs already claim it works.
 Seven entries across two projects. None of them were caught by the AI
 agent unprompted; all of them were caught by the operator's recognition
 of "this output doesn't match what I expect" — including the most
-recent one, which was about the *documentation* not matching what the
-infrastructure actually does. That's the comprehension layer doing its
-job — and it's also the answer to the question "what's the operator
-actually doing if the agent is writing the code." Catching these is
-the work.
+recent one, which started as "the documentation doesn't match the
+infrastructure," became "the production behavior doesn't match the
+documentation," and finally became "the cloud account doesn't match
+the infrastructure code." That progression — three rounds of the same
+question peeling back a deeper layer of wrong each time — is the
+clearest example in this log of why the comprehension layer is the
+work, not the code generation. Each round closed in one or two
+sentences from the operator. The agent did not initiate any of them.
 
 The pattern across entries: the agent produces something that runs
 without throwing an exception (or, in the most recent case, produces
-a README that reads plausibly); the operator notices the output is
-wrong-shaped or wrong-claimed; the operator diagnoses why; the
-operator directs the fix. None of those four steps are skippable, and
-none of them are the agent's job.
+a README that reads plausibly across three artifacts that all agree
+with each other and disagree with reality); the operator notices the
+output is wrong-shaped or wrong-claimed; the operator diagnoses why;
+the operator directs the fix. None of those four steps are skippable,
+and none of them are the agent's job.

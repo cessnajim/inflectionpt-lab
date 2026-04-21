@@ -13,18 +13,19 @@ end through AI prompting in a Cursor session against Claude.
 - About / services / engagement pages
 - A writing index (long-form articles + a separate playbook section)
 - A `/work/` index with `/work/idaho-admin/` as the first deep work page
-- Contact form + newsletter subscribe whose Lambda back-ends are
-  written and deployed (`lambda/{contact,subscribe}/index.mjs`,
-  Function URLs, Amazon SES, optional Buttondown) but **not currently
-  wired to the live form components** — the form `<form action>`
-  attributes still point at same-origin `/api/*` paths that have no
-  CloudFront behavior in front of them, so submissions 404 in
-  production. This regressed silently when the deploy moved from the
-  earlier Cloudflare Pages target to AWS S3 + CloudFront and was
-  caught while doing the docs cleanup that produced this folder. The
-  fix is small (point the form `action`s at the Lambda Function URLs
-  and delete the `functions/api/*.ts` Cloudflare Pages scaffolding) and
-  is described in the source repo's README under "Form wiring."
+- Contact form + newsletter subscribe whose back-end source code
+  exists (`lambda/{contact,subscribe}/index.mjs`, intended to run as
+  AWS Lambda Function URLs against the verified `inflectionpt.io`
+  SES identity) but has **never actually been deployed** — `aws
+  lambda list-functions` returns no matching functions in any region,
+  and the form components POST to same-origin `/api/*` paths that
+  have no CloudFront behavior in front of them anyway. The contact
+  form has been non-functional since the site went live. Caught and
+  documented while doing the docs cleanup that produced this folder.
+  The fix is small but real (deploy the two Lambdas, point the form
+  `action`s at their Function URLs, delete the legacy
+  `functions/api/*.ts` Cloudflare Pages scaffolding) and is described
+  in detail in the source repo's README under "Form wiring."
 - Embedded Potree viewers for the Idaho admin scan + classified scan
 
 ## Stack
@@ -32,10 +33,9 @@ end through AI prompting in a Cursor session against Claude.
 - **Site:** Astro (static-first, content-driven)
 - **Styling:** Tailwind, with a custom typographic scale + color
   tokens defined as CSS custom properties
-- **Forms:** AWS Lambda functions with Lambda Function URLs
-  (`lambda/{contact,subscribe}/index.mjs`). No API Gateway, no Pages
-  Functions middleman. (Currently disconnected from the live form
-  components — see "What's there" above.)
+- **Forms:** AWS Lambda source code in `lambda/{contact,subscribe}/index.mjs`
+  intended to run as Function URLs. No API Gateway, no Pages Functions
+  middleman. **Not currently deployed** — see "What's there" above.
 - **Email:** Amazon SES (verified `inflectionpt.io` identity in
   `us-east-1`); optional Buttondown for the subscribe Lambda.
 - **Hosting:** AWS S3 (`inflection-point-advisory-site`) fronted by
