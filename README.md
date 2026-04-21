@@ -43,6 +43,11 @@ projects/
   out-and-about/          Personal photo & video gallery, 140+
                           pieces, indexed on an interactive map.
   inflectionpt-io/        The advisory site itself.
+  pm-kb-workspace/        Working knowledge-base workspace used
+                          daily for an enterprise PM role.
+                          Functional architecture only; the
+                          employer, product, and strategy content
+                          stay private.
 decisions/                ADR-style records for cross-cutting calls
                           (the prompted-not-typed practice, when to
                           abandon an experiment, why source is
@@ -60,10 +65,13 @@ Each `projects/<name>/` folder, where filled in, has roughly:
 - `decisions.md` — project-specific calls and the reasoning
 - `commit-log.md` — curated extracts from the private repo's commit history that read as standalone explanation artifacts
 
-Idaho admin is the worked example. The other four are placeholders
-that get filled in as I write them up. Listing them with the gap
-visible is intentional — the alternative is pretending I've documented
-five projects when I've actually documented one.
+Idaho admin is the worked example. PM KB workspace is the second
+filled-in entry, kept deliberately at the functional-architecture
+level because its source repo is the most client-sensitive in the
+set. The other four are placeholders that get filled in as I write
+them up. Listing them with the gap visible is intentional — the
+alternative is pretending I've documented six projects when I've
+actually documented two.
 
 ## What's *not* here
 

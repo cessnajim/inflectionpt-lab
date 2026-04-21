@@ -5,14 +5,45 @@
 
 ## What
 
-The source code for the five projects listed in this lab repo
+The source code for the six projects listed in this lab repo
 (`inflectionpt.io`, the LiDAR pipeline under
-`infrastructure/ml/`, DAM, NatureNet DataHub, Out & About) lives in
-private GitHub repos. The architecture, decisions, pipeline reasoning,
-curated commit messages, and method documentation live here, in this
-public lab repo.
+`infrastructure/ml/`, DAM, NatureNet DataHub, Out & About, and the
+PM KB workspace) lives in private GitHub repos. The architecture,
+decisions, pipeline reasoning, curated commit messages, and method
+documentation live here, in this public lab repo.
 
 This lab repo *is* the implementation of the decision.
+
+## Two privacy classes
+
+Not every private repo is private for the same reason, and the lab
+write-ups reflect that.
+
+**Project-private.** Five of the six repos (`inflectionpt.io`, the
+LiDAR pipeline, DAM, NatureNet DataHub, Out & About) are private
+mostly for the reasons in the [next section](#why-not-fully-public).
+Their lab write-ups can quote configuration files, show the 17-step
+pipeline rationale, reference specific commit messages, and
+describe concrete decisions with named alternatives.
+
+**Employer-private.** The PM KB workspace is private for a stricter
+reason: it is the operator's daily PM surface for an employer
+relationship that is still live. Publishing architecture is fine;
+publishing content (the graph, the rocks, the positioning brief, the
+customer list, the competitive analysis, the meeting notes) is not.
+The lab write-up for that project is scoped to *functional
+architecture only* — it describes the shape of the graph, the
+skills, the services, the rules, and the workflows, but it never
+quotes an artifact and never names the employer, the product, the
+pod, or the specifics of any ongoing work.
+
+This split is explicit in the lab repo (see
+[`projects/pm-kb-workspace/README.md`](../projects/pm-kb-workspace/README.md)
+under "Boundaries") because the reader should be able to tell
+which class a given write-up is operating under. Architecture
+write-ups can carry a lot of comprehension signal without any
+content leaking; that's the whole point of including the workspace
+in the lab at all.
 
 ## Why not fully public
 

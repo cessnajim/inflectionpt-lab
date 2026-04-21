@@ -5,10 +5,11 @@
 
 ## What
 
-Every line of code in the five projects listed in this lab repo —
+Every line of code across the projects listed in this lab repo —
 the LiDAR pipeline, DAM Core, NatureNet DataHub, Out & About with
-Jim, and inflectionpt.io itself — was written by an AI agent in
-response to prompts in a Cursor session. No code was typed by hand.
+Jim, inflectionpt.io itself, and the PM knowledge-base workspace —
+was written by an AI agent in response to prompts in a Cursor
+(or Claude Code, or Cowork) session. No code was typed by hand.
 The human role across every project was: architecture, prompts, diff
 review, judgement on what to ship and what to throw away.
 
@@ -66,9 +67,10 @@ That's right. The risk of the prompted-not-typed practice is exactly
 the failure mode it warns about: shipping ten things you don't
 understand instead of one thing you do. Mitigations:
 
-- **Five projects, four placeholder READMEs.** Listing all five with
-  the gap visible (only the LiDAR work is deeply documented here yet)
-  is more honest than pretending we've documented five.
+- **Six projects, four placeholder READMEs.** Listing all six with
+  the gap visible (only the LiDAR work and the PM KB workspace are
+  deeply documented here yet) is more honest than pretending we've
+  documented all of them.
 - **Explanation artifacts as the deliverable.** The lab repo exists
   because the comprehension claim is testable: read the architecture,
   decisions, and commit log; if you can't reverse-engineer "this

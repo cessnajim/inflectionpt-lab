@@ -29,11 +29,12 @@ publish target for the [DAM Core editor](../dam-core/README.md).
 
 It's a different shape of project from the others. The LiDAR pipeline
 is a one-shot batch processor. DAM Core is a long-lived workflow tool.
-NatureNet DataHub is a versioned data platform. Out & About is a
-public-facing read-mostly product with SEO, performance, and
-content-management constraints. All four were AI-prompted end to end —
-which means the lab repo is partly a study in how the AI-prompted
-method holds up across very different shapes of software.
+NatureNet DataHub is a versioned data platform. The PM KB workspace
+is a personal knowledge-work system. Out & About is a public-facing
+read-mostly product with SEO, performance, and content-management
+constraints. All of them were AI-prompted end to end — which means
+the lab repo is partly a study in how the AI-prompted method holds up
+across very different shapes of software.
 
 ## Status
 

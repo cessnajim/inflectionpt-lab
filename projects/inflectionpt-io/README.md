@@ -37,7 +37,10 @@ The site is one of the five "100% prompted" projects called out on
 the live About page. Including it here keeps the count honest — the
 list isn't four production tools and a hand-coded marketing site,
 it's five end-to-end-prompted things, including the surface that's
-making the claim.
+making the claim. (The lab repo documents a sixth —
+[`../pm-kb-workspace/`](../pm-kb-workspace/README.md) — which is
+intentionally not part of the live-site count for employer-privacy
+reasons explained in [`decisions/003`](../../decisions/003-private-source-public-method.md).)
 
 ## What this folder will eventually contain
 
