@@ -191,7 +191,7 @@ guessing at the pattern.
 
 ---
 
-## Public README claimed Cloudflare Pages; site is on AWS S3 + CloudFront
+## Public README claimed Cloudflare Pages while the contact form was silently 404'ing in production
 
 **What:** for several weeks the site README, this lab repo's
 `projects/inflectionpt-io/README.md`, and the curated entry for commit
@@ -207,46 +207,82 @@ Function files under `functions/api/*.ts` are inert leftover scaffolding
 from an earlier attempted hosting choice that was abandoned without
 removing the code or updating the docs.
 
+This was originally logged as a documentation bug. A direct production
+probe during the cleanup turned it into something worse: **the contact
+form and newsletter signup have been broken in production the entire
+time the AWS deploy has been live.** The form components POST to
+same-origin paths (`/api/contact`, `/api/subscribe`) that have no
+CloudFront behavior pointing anywhere — POSTs return CloudFront 403
+("distribution supports only cachable requests"), GETs return S3 404
+NoSuchKey. The Lambda functions in `lambda/` are deployed and
+functional but receive zero traffic from the live site. The wrong-
+deploy-target docs perfectly hid the wrong-form-wiring bug, because the
+docs claimed an architecture (Cloudflare Pages Functions on the same
+origin as the site) where same-origin `/api/*` POSTs would actually
+have worked.
+
 The contradiction was sitting in the open the entire time: the site's
 own `infrastructure/README.md` documents the CloudFront → S3 pipeline
 in detail, including the distribution ID and the IaC-lite shell scripts
 that provisioned it, and `lambda/README.md` documents the SES + Lambda
-Function URL form handlers. No one — agent or operator — had cross-read
-the high-level README against the infrastructure subdirectories.
+Function URL form handlers. No one — agent or operator — had
+cross-read the high-level README against the infrastructure
+subdirectories, and no one had probed the live form endpoints.
 
 **How surfaced:** operator, while reviewing the lab repo and the live
 About page after a recent push, asked: "you need to review where this
 gets deployed and change any docs that are wrong." That single sentence
-forced the cross-check that should have happened on day one.
+forced the cross-check, which surfaced the documentation drift. Then
+"let's clean up the docs to reflect reality" forced a `curl` against
+production, which surfaced the silent breakage.
 
-**Caught by:** operator.
+**Caught by:** operator. The agent could have probed production at any
+point in the last several weeks and didn't.
 
-**Fix:** rewrite the Stack / Build / Deploy / Forms sections of the
-site README, the Stack section of `projects/inflectionpt-io/README.md`
-in the lab, and the curated `f8178b6` entry in the commit log to
-describe what actually shipped. Add a curator's note on the commit-log
-entry acknowledging that the original git commit message was itself
-wrong. Fix the About page's tech stack list (which had named "Cloudflare
-Workers" as part of what the agent shipped — also untrue). Decide
-separately whether to remove the legacy `functions/` directory from the
-source repo; for now the site README flags it explicitly as inert.
+**Fix:**
 
-**Lesson:** the comprehension checklist had per-diff and per-feature
-items but no "where does this actually deploy?" item. That gap let a
-high-level README narrate one architecture while the implementation
-shipped another, for weeks, in public. The checklist should grow a
-"deploy-truth" item: for any project visible in the lab, the README
-must reconcile against the infrastructure code (Terraform, IaC scripts,
-or whatever exists), and the reconciliation must be redone any time the
-deploy target moves. The cost of the reconciliation is minutes; the
-cost of the drift is reader trust.
+- *Documentation:* rewrite the Stack / Build / Deploy / Forms sections
+  of the site README, the Stack section of
+  `projects/inflectionpt-io/README.md` in the lab, and the curated
+  `f8178b6` entry in the commit log to describe what actually shipped
+  (and, where applicable, what is currently broken). Add a curator's
+  note on the commit-log entry acknowledging that the original git
+  commit message was itself wrong. Fix the About page's tech stack
+  list (which had named "Cloudflare Workers" — also untrue).
+- *Live forms:* update `src/components/ContactForm.astro` and
+  `src/components/NewsletterForm.astro` to POST directly to the
+  `*.lambda-url.us-east-1.on.aws` URLs of the deployed Lambda
+  functions (matching what `lambda/README.md` already claims is
+  happening, and consistent with the Lambdas' use of absolute redirect
+  URLs). Then delete `functions/api/*.ts` since the Cloudflare Pages
+  Function path is permanently dead under the AWS deploy. This fix is
+  not in scope for this docs-cleanup pass — the docs now describe what
+  needs to change and the source README has a "Form wiring" section
+  with the two viable resolutions and the trade-off.
+
+**Lesson:** two compounding gaps. (1) The comprehension checklist had
+per-diff and per-feature items but no "does this actually run end to
+end against the live origin?" item — there's a difference between
+"the Lambda is deployed" and "the form actually reaches the Lambda,"
+and only the second one matters. (2) The checklist also had no
+"the README reconciles against the infrastructure" item — that gap
+let a high-level README narrate one architecture while the
+implementation shipped another, for weeks, in public. The
+[comprehension-checklist](comprehension-checklist.md) now has the
+README-reconciliation item; an end-to-end-against-prod item should
+follow, because reconciling docs against IaC is necessary but not
+sufficient — the live behavior is the actual ground truth.
 
 There's a meta-version of this that's worth saying directly: an AI
 agent asked to write a README for a project will happily restate
-whatever the previous README claimed. If the previous claim was an
-aspirational deploy target that never happened, the new README will
-inherit the wrong claim with extra confidence. The fix is human
-cross-checking against the infrastructure, not better prompts.
+whatever the previous README claimed, and will happily ship form
+components whose `action` paths look right against the *previous*
+hosting target without noticing those paths don't route under the
+*current* hosting target. The fix is human cross-checking against the
+infrastructure *and* against production, not better prompts. "Did you
+test it against the live site" is the question that closes the loop,
+and it's specifically the question that doesn't get asked when the
+docs already claim it works.
 
 ---
 

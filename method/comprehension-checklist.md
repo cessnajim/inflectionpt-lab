@@ -60,11 +60,19 @@ project shipped without satisfying these, the claim doesn't apply.
       deploy mechanism, runtime, and form/back-end handlers must be
       cross-checked against the actual infrastructure code (Terraform,
       CDK, IaC scripts, `lambda/`, `infrastructure/`, whatever exists).
-      Added after the
-      [Cloudflare-Pages-vs-AWS](failure-log.md#public-readme-claimed-cloudflare-pages-site-is-on-aws-s3--cloudfront)
-      entry, where a high-level README narrated one deploy target while
-      the infrastructure shipped another for weeks. Re-run this check
-      every time the deploy target moves.
+      Re-run this check every time the deploy target moves.
+- [ ] **Every user-visible interaction has been tested end-to-end
+      against production.** Not "the back-end is deployed," not "the
+      form renders," not "it works in `npm run dev`." The submit
+      button on the live site, with a real POST, returning the real
+      success page. For any non-GET interaction (form submits, API
+      calls, webhook receivers), `curl` against the live URL is part
+      of accepting the work. Both items above were added after the
+      [Cloudflare-Pages-vs-AWS-with-broken-forms](failure-log.md#public-readme-claimed-cloudflare-pages-while-the-contact-form-was-silently-404ing-in-production)
+      entry, where the docs claimed one architecture, the
+      infrastructure shipped a second, and the live site silently
+      404'd a third — and none of that surfaced for weeks because no
+      one had actually pressed the contact button.
 
 ## Per-week checks (the ongoing practice)
 
