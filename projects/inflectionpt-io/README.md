@@ -13,9 +13,9 @@ end through AI prompting in a Cursor session against Claude.
 - About / services / engagement pages
 - A writing index (long-form articles + a separate playbook section)
 - A `/work/` index with `/work/idaho-admin/` as the first deep work page
-- Contact form + newsletter subscribe (Cloudflare Pages functions
-  forwarding to AWS Lambda backers — SES for email send, SNS for
-  notification)
+- Contact form + newsletter subscribe handled by AWS Lambda
+  (`lambda/{contact,subscribe}/index.mjs`) with Lambda Function URLs;
+  Amazon SES for outbound mail; optional Buttondown for the newsletter
 - Embedded Potree viewers for the Idaho admin scan + classified scan
 
 ## Stack
@@ -23,13 +23,22 @@ end through AI prompting in a Cursor session against Claude.
 - **Site:** Astro (static-first, content-driven)
 - **Styling:** Tailwind, with a custom typographic scale + color
   tokens defined as CSS custom properties
-- **Forms:** Cloudflare Pages Functions (`functions/api/*.ts`)
-  forwarding to AWS Lambda (`lambda/{contact,subscribe}/index.mjs`)
-- **Email/notify:** AWS SES + SNS
-- **Hosting:** Cloudflare Pages (auto-deploy from `main`)
-- **CDN-fronted assets:** S3 + CloudFront for the COPC point clouds
-  served by the work-page viewers (provisioned by the AWS scripts
-  documented in [`../idaho-admin-lidar/architecture.md`](../idaho-admin-lidar/architecture.md))
+- **Forms:** AWS Lambda functions with Lambda Function URLs
+  (`lambda/{contact,subscribe}/index.mjs`). No API Gateway, no Pages
+  Functions middleman.
+- **Email:** Amazon SES (verified `inflectionpt.io` identity in
+  `us-east-1`); optional Buttondown for the subscribe Lambda.
+- **Hosting:** AWS S3 (`inflection-point-advisory-site`) fronted by
+  CloudFront (`E3EQIEAXLDNIFA`, aliases `inflectionpt.io` /
+  `www.inflectionpt.io`). Deploy is **manual** — `npm run build` then
+  `aws s3 sync dist/ s3://inflection-point-advisory-site/ --delete`
+  followed by a CloudFront invalidation. There is no auto-deploy from
+  `main`; pushing to GitHub does not ship the site.
+- **CDN-fronted assets:** the same CloudFront distribution serves
+  COPC point clouds for the work-page viewers via a separate `/scans/*`
+  behavior pointing at `inflection-point-advisory-scans` over OAC
+  (provisioned by the AWS scripts documented in
+  [`../idaho-admin-lidar/architecture.md`](../idaho-admin-lidar/architecture.md))
 
 ## Why this folder exists in the lab repo
 
@@ -42,8 +51,19 @@ making the claim.
 ## What this folder will eventually contain
 
 The Astro content architecture (collections, schema, dynamic routes),
-the CSS token system, the choice of Cloudflare Pages over Vercel /
-Netlify, the form-handling architecture (why CF function → Lambda
-rather than direct to Lambda or to a third-party form service), and
-the prompt patterns that worked for "build a real marketing site"
-vs. the more pipeline-shaped prompts from the LiDAR work.
+the CSS token system, the choice of S3 + CloudFront over a managed
+hosting platform (Vercel, Netlify, Cloudflare Pages) — driven by the
+fact that the COPC point-cloud delivery was already going to live on
+CloudFront via OAC for the LiDAR work, so unifying the marketing
+origin onto the same distribution was the cheaper path —
+the form-handling architecture (Lambda Function URLs + SES instead of
+a third-party form service or Pages Functions), and the prompt
+patterns that worked for "build a real marketing site" vs. the more
+pipeline-shaped prompts from the LiDAR work.
+
+It will also document the comprehension failure logged in
+[`../../method/failure-log.md`](../../method/failure-log.md) where the
+public README and curated commit messages claimed Cloudflare Pages
+hosting for several weeks while the site was actually on S3 +
+CloudFront — a cheap-to-make documentation drift that the comprehension
+checklist is supposed to catch and didn't.

@@ -39,9 +39,25 @@ creates a reproducibility gap, and writes the README that closes it.
 operations-ai-engagement, production-ai-review, strategy-sprint,
 subscribed, thanks, plus work/ writing/ playbook/ index + dynamic
 slug routes), 5 long-form articles, 6 playbook chapters wired through
-content.config.ts, 6 components, the layout + nav + homepage,
-Cloudflare Pages functions for the contact + subscribe forms, AWS
-Lambda backers behind those functions.
+content.config.ts, 6 components, the layout + nav + homepage, and
+form scaffolding for contact + subscribe.
+
+> **Curator's note (post-hoc).** The original commit message described
+> the form-handling architecture as "Cloudflare Pages functions
+> forwarding to AWS Lambda backers." That message was written assuming
+> a Cloudflare Pages deploy that never actually happened — the site
+> shipped to AWS S3 + CloudFront (see commit `2b637b3` below for the
+> infrastructure that confirms this). The Cloudflare Pages Functions
+> under `functions/api/*.ts` are inert in production; the live form
+> handlers are the AWS Lambda functions in `lambda/{contact,subscribe}/`,
+> behind Lambda Function URLs, sending via Amazon SES.
+>
+> The drift sat in the README, this curated log, and the original
+> commit message for several weeks before anyone (the operator)
+> caught it. It's logged in
+> [`../../method/failure-log.md`](../../method/failure-log.md) as a
+> concrete example of why the comprehension checklist needs a
+> "where does this actually deploy?" item.
 
 The about page calls out that DAM Core, NatureNet DataHub, Out & About
 with Jim, this advisory site, and the LiDAR classification pipeline
@@ -57,8 +73,10 @@ the working site.
 ## `f0cf7cb` — Vendor Potree and ship scan + splat viewers
 
 411 files. Embeds the open-source Potree WebGL point-cloud viewer
-(~42 MB) under `public/potree/` so Cloudflare Pages serves it directly —
-no per-seat license, no managed SaaS, just CDN-cached static assets.
+(~42 MB) under `public/potree/` so the site's CloudFront distribution
+(`E3EQIEAXLDNIFA`, fronting the `inflection-point-advisory-site` S3
+bucket) serves it directly — no per-seat license, no managed SaaS,
+just CDN-cached static assets.
 
 `public/scan-viewer/idaho-admin/` and `idaho-admin-classified/` host
 the two iframe-embedded viewers used by /work/idaho-admin/. The

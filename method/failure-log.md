@@ -191,17 +191,79 @@ guessing at the pattern.
 
 ---
 
+## Public README claimed Cloudflare Pages; site is on AWS S3 + CloudFront
+
+**What:** for several weeks the site README, this lab repo's
+`projects/inflectionpt-io/README.md`, and the curated entry for commit
+`f8178b6` in `projects/idaho-admin-lidar/commit-log.md` all described
+the inflectionpt.io deploy as "Cloudflare Pages + Cloudflare Pages
+Functions + MailChannels." The original git commit message itself
+described the form-handling architecture the same way.
+
+The actual deploy is AWS S3 (`inflection-point-advisory-site`) fronted
+by CloudFront (distribution `E3EQIEAXLDNIFA`), with form handlers as
+AWS Lambda Function URLs sending via Amazon SES. The Cloudflare Pages
+Function files under `functions/api/*.ts` are inert leftover scaffolding
+from an earlier attempted hosting choice that was abandoned without
+removing the code or updating the docs.
+
+The contradiction was sitting in the open the entire time: the site's
+own `infrastructure/README.md` documents the CloudFront → S3 pipeline
+in detail, including the distribution ID and the IaC-lite shell scripts
+that provisioned it, and `lambda/README.md` documents the SES + Lambda
+Function URL form handlers. No one — agent or operator — had cross-read
+the high-level README against the infrastructure subdirectories.
+
+**How surfaced:** operator, while reviewing the lab repo and the live
+About page after a recent push, asked: "you need to review where this
+gets deployed and change any docs that are wrong." That single sentence
+forced the cross-check that should have happened on day one.
+
+**Caught by:** operator.
+
+**Fix:** rewrite the Stack / Build / Deploy / Forms sections of the
+site README, the Stack section of `projects/inflectionpt-io/README.md`
+in the lab, and the curated `f8178b6` entry in the commit log to
+describe what actually shipped. Add a curator's note on the commit-log
+entry acknowledging that the original git commit message was itself
+wrong. Fix the About page's tech stack list (which had named "Cloudflare
+Workers" as part of what the agent shipped — also untrue). Decide
+separately whether to remove the legacy `functions/` directory from the
+source repo; for now the site README flags it explicitly as inert.
+
+**Lesson:** the comprehension checklist had per-diff and per-feature
+items but no "where does this actually deploy?" item. That gap let a
+high-level README narrate one architecture while the implementation
+shipped another, for weeks, in public. The checklist should grow a
+"deploy-truth" item: for any project visible in the lab, the README
+must reconcile against the infrastructure code (Terraform, IaC scripts,
+or whatever exists), and the reconciliation must be redone any time the
+deploy target moves. The cost of the reconciliation is minutes; the
+cost of the drift is reader trust.
+
+There's a meta-version of this that's worth saying directly: an AI
+agent asked to write a README for a project will happily restate
+whatever the previous README claimed. If the previous claim was an
+aspirational deploy target that never happened, the new README will
+inherit the wrong claim with extra confidence. The fix is human
+cross-checking against the infrastructure, not better prompts.
+
+---
+
 ## What this log says about the practice
 
-Six entries in one project. None of them were caught by the AI agent
-unprompted; all of them were caught by the operator's recognition of
-"this output doesn't match what I expect." That's the comprehension
-layer doing its job — and it's also the answer to the question
-"what's the operator actually doing if the agent is writing the
-code." Catching these is the work.
+Seven entries across two projects. None of them were caught by the AI
+agent unprompted; all of them were caught by the operator's recognition
+of "this output doesn't match what I expect" — including the most
+recent one, which was about the *documentation* not matching what the
+infrastructure actually does. That's the comprehension layer doing its
+job — and it's also the answer to the question "what's the operator
+actually doing if the agent is writing the code." Catching these is
+the work.
 
 The pattern across entries: the agent produces something that runs
-without throwing an exception; the operator notices the output is
-wrong-shaped; the operator diagnoses why; the operator directs the
-fix. None of those four steps are skippable, and none of them are
-the agent's job.
+without throwing an exception (or, in the most recent case, produces
+a README that reads plausibly); the operator notices the output is
+wrong-shaped or wrong-claimed; the operator diagnoses why; the
+operator directs the fix. None of those four steps are skippable, and
+none of them are the agent's job.

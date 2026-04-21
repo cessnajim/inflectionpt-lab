@@ -55,6 +55,16 @@ project shipped without satisfying these, the claim doesn't apply.
       don't.
 - [ ] **I can answer "what would you do differently next time."**
       A project I can't critique is a project I haven't comprehended.
+- [ ] **The README reconciles against the infrastructure.** For any
+      project that ships, the high-level README's claims about hosting,
+      deploy mechanism, runtime, and form/back-end handlers must be
+      cross-checked against the actual infrastructure code (Terraform,
+      CDK, IaC scripts, `lambda/`, `infrastructure/`, whatever exists).
+      Added after the
+      [Cloudflare-Pages-vs-AWS](failure-log.md#public-readme-claimed-cloudflare-pages-site-is-on-aws-s3--cloudfront)
+      entry, where a high-level README narrated one deploy target while
+      the infrastructure shipped another for weeks. Re-run this check
+      every time the deploy target moves.
 
 ## Per-week checks (the ongoing practice)
 
