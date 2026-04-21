@@ -13,19 +13,22 @@ end through AI prompting in a Cursor session against Claude.
 - About / services / engagement pages
 - A writing index (long-form articles + a separate playbook section)
 - A `/work/` index with `/work/idaho-admin/` as the first deep work page
-- Contact form + newsletter subscribe whose back-end source code
-  exists (`lambda/{contact,subscribe}/index.mjs`, intended to run as
-  AWS Lambda Function URLs against the verified `inflectionpt.io`
-  SES identity) but has **never actually been deployed** — `aws
-  lambda list-functions` returns no matching functions in any region,
-  and the form components POST to same-origin `/api/*` paths that
-  have no CloudFront behavior in front of them anyway. The contact
-  form has been non-functional since the site went live. Caught and
-  documented while doing the docs cleanup that produced this folder.
-  The fix is small but real (deploy the two Lambdas, point the form
-  `action`s at their Function URLs, delete the legacy
-  `functions/api/*.ts` Cloudflare Pages scaffolding) and is described
-  in detail in the source repo's README under "Form wiring."
+- Contact form + newsletter subscribe — **now working end to end** as
+  of the docs-cleanup pass that produced this folder. The Astro form
+  components POST to same-origin `/api/contact` and `/api/subscribe`;
+  CloudFront routes those to an API Gateway HTTP API
+  (`inflection-point-advisory-forms`); the HTTP API proxies to two
+  AWS Lambda functions (`inflection-point-advisory-{contact,subscribe}`,
+  `nodejs20.x`); the Lambdas send mail via Amazon SES from the
+  verified `inflectionpt.io` identity and 303-redirect the browser
+  to `/thanks/` or `/subscribed/`. Both Lambdas, the IAM role, the
+  HTTP API, and the CloudFront `/api/*` behavior are provisioned by
+  idempotent shell scripts under `infrastructure/scripts/05-*.sh` and
+  `06-*.sh` in the source repo. The forms had been silently
+  non-functional since launch — see
+  [`../../method/failure-log.md`](../../method/failure-log.md) for the
+  full discovery → fix story, including why the original Lambda
+  Function URL plan was abandoned in favor of API Gateway.
 - Embedded Potree viewers for the Idaho admin scan + classified scan
 
 ## Stack
@@ -33,9 +36,14 @@ end through AI prompting in a Cursor session against Claude.
 - **Site:** Astro (static-first, content-driven)
 - **Styling:** Tailwind, with a custom typographic scale + color
   tokens defined as CSS custom properties
-- **Forms:** AWS Lambda source code in `lambda/{contact,subscribe}/index.mjs`
-  intended to run as Function URLs. No API Gateway, no Pages Functions
-  middleman. **Not currently deployed** — see "What's there" above.
+- **Forms:** AWS Lambda (`nodejs20.x`, source in
+  `lambda/{contact,subscribe}/index.mjs`) fronted by an AWS API Gateway
+  HTTP API, fronted in turn by the same CloudFront distribution that
+  serves the marketing site under a same-origin `/api/*` cache
+  behavior. No Cloudflare Pages Functions, no third-party form
+  service. The Lambda Function URL approach this folder originally
+  documented was abandoned mid-build for reasons explained in
+  [`../../method/failure-log.md`](../../method/failure-log.md).
 - **Email:** Amazon SES (verified `inflectionpt.io` identity in
   `us-east-1`); optional Buttondown for the subscribe Lambda.
 - **Hosting:** AWS S3 (`inflection-point-advisory-site`) fronted by
@@ -66,14 +74,19 @@ hosting platform (Vercel, Netlify, Cloudflare Pages) — driven by the
 fact that the COPC point-cloud delivery was already going to live on
 CloudFront via OAC for the LiDAR work, so unifying the marketing
 origin onto the same distribution was the cheaper path —
-the form-handling architecture (Lambda Function URLs + SES instead of
-a third-party form service or Pages Functions), and the prompt
-patterns that worked for "build a real marketing site" vs. the more
-pipeline-shaped prompts from the LiDAR work.
+the form-handling architecture (CloudFront → API Gateway HTTP API →
+Lambda → SES, instead of a third-party form service or Pages
+Functions), the architectural detour through Lambda Function URLs
+that didn't pan out, and the prompt patterns that worked for "build
+a real marketing site" vs. the more pipeline-shaped prompts from the
+LiDAR work.
 
-It will also document the comprehension failure logged in
-[`../../method/failure-log.md`](../../method/failure-log.md) where the
-public README and curated commit messages claimed Cloudflare Pages
-hosting for several weeks while the site was actually on S3 +
-CloudFront — a cheap-to-make documentation drift that the comprehension
-checklist is supposed to catch and didn't.
+It will also document the comprehension failures logged in
+[`../../method/failure-log.md`](../../method/failure-log.md) — the
+documentation drift where the public README and curated commit
+messages claimed Cloudflare Pages hosting for several weeks while the
+site was actually on S3 + CloudFront, and the deeper one underneath
+it where the contact form was silently non-functional from launch
+because the IaC and the cloud account had never agreed on what was
+deployed. Both are cheap-to-make failures that the comprehension
+checklist is supposed to catch and didn't, until they did.

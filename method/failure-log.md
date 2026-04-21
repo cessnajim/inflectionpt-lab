@@ -272,22 +272,91 @@ didn't.
 **Caught by:** operator, three times in three rounds in a single
 session.
 
+**Round 4 (Function URL turned out to be the wrong front door).**
+Resolving the bug for real, not just on paper, became its own
+multi-step debugging exercise. The original "deploy two Lambdas as
+public Function URLs and point the form `action`s at them" plan was
+the obvious next move and was the one taken first. It did not work,
+in interesting ways:
+
+1. The deploying IAM principal (`admin`) couldn't actually create a
+   Function URL config. The inline policy attached to the user
+   enumerated Lambda actions explicitly and `lambda:CreateFunctionUrlConfig`
+   wasn't on the list. The fix was a customer-managed
+   `InflectionPointFormLambdaDeploy` policy attached to the
+   `admin-amplify` IAM group (the inline policy was already at the 2KB
+   AWS limit). This is its own "the docs don't match the cloud account"
+   miniature: the IAM principal *named* `admin` is not omnipotent, and
+   the only way to know that is to try the action and read the error.
+2. With Function URLs successfully created (`AuthType=NONE`), public
+   POSTs returned `AccessDeniedException` from inside Lambda's edge,
+   not from a missing resource policy. The resource policy was textbook,
+   `iam simulate-principal-policy` said the call should succeed, the
+   propagation wait was generous. Some account-level guardrail —
+   no SCP, no permission boundary, no organizational policy, no
+   documented Lambda Block-Public-Access toggle visible from the CLI —
+   nonetheless refused public Function URL traffic. Rather than fight
+   an unidentified guardrail, we abandoned the public-Function-URL
+   approach.
+3. With Function URLs flipped to `AuthType=AWS_IAM` and fronted by
+   CloudFront with Origin Access Control, GET requests worked but
+   POSTs returned `InvalidSignatureException`. The AWS docs are clear
+   on this: Lambda Function URL OAC requires the *viewer* to compute
+   `x-amz-content-sha256` on the request body and ship it as a header.
+   Plain HTML form submissions — which is the entire point of having
+   a back-end here — cannot do this. CloudFront → Function URL with
+   OAC is an invalid configuration for browser form POSTs, by AWS's
+   own design.
+
+The third discovery is the one that mattered architecturally. The
+solution was to put **API Gateway HTTP API** in front of the Lambdas
+instead of Function URLs: HTTP API accepts unsigned POSTs, integrates
+natively with Lambda proxy, is happily fronted by CloudFront with no
+OAC ceremony, and is what AWS-documented patterns for "browser form →
+Lambda" actually use. Two existing infrastructure scripts were renamed
+and rewritten:
+
+- `infrastructure/scripts/05-deploy-form-lambdas.sh` now only
+  provisions the IAM role and the two Lambda functions; it stopped
+  creating Function URLs entirely and cleans up any it had previously
+  created.
+- `infrastructure/scripts/06-front-form-lambdas-on-apigateway.sh`
+  (replacing an earlier `06-front-form-lambdas-on-cloudfront.sh` that
+  attempted the OAC route) provisions the HTTP API
+  `inflection-point-advisory-forms` with `ANY /api/contact` and
+  `ANY /api/subscribe` Lambda proxy routes, attaches resource-based
+  invoke permissions to each Lambda, then adds the HTTP API as a
+  CloudFront origin and `/api/*` cache behavior on `E3EQIEAXLDNIFA`.
+
+After both scripts converged and CloudFront returned `Status=Deployed`,
+end-to-end `curl` against production confirmed:
+
+- `GET /api/contact` → 302 to `/#contact` (the Lambda's friendly GET
+  handler).
+- `POST /api/contact` with the honeypot field set → 303 to `/thanks/`.
+- `POST /api/subscribe` with the honeypot field set → 303 to
+  `/subscribed/`.
+- A real validation-error POST appeared in CloudWatch under the
+  expected log group. Lambda is being invoked.
+
+The legacy Cloudflare Pages Functions scaffolding under `functions/`
+was deleted. All site, infrastructure, and `lambda/` READMEs were
+rewritten to describe the actual deployed architecture.
+
 **Fix:**
 
-- *Documentation* (done in this cleanup pass): rewrite the Stack /
+- *Documentation* (done in the cleanup pass): rewrote the Stack /
   Build / Deploy / Form-wiring sections of the site README, the
   Stack section of `projects/inflectionpt-io/README.md` in the lab,
-  the curated `f8178b6` entry in the commit log, and the About page's
-  tech stack list. The site README's "Form wiring" section now
-  describes the actual three-layer absence (no Pages runtime, no
-  Lambda runtime, no `/api/*` CloudFront behavior) and lists the four
-  ordered steps required to make the form work.
-- *Live forms* (not in this pass): deploy the two Lambdas as Function
-  URLs in `us-east-1` against the verified SES identity, add an
-  idempotent `infrastructure/scripts/05-deploy-form-lambdas.sh`,
-  rewire the form `action`s to the captured Function URLs, delete the
-  `functions/` directory, and probe with `curl` against production
-  to confirm 303s back to `/thanks/` and `/subscribed/`.
+  the curated `f8178b6` entry in the commit log, the
+  `infrastructure/README.md` architecture diagram + script table, the
+  `lambda/README.md`, and the About page's tech stack list. The site
+  README's "Form wiring" section now documents the working
+  CloudFront → API Gateway → Lambda → SES path, the reasoning for
+  abandoning Function URLs, and verified end-to-end `curl` output.
+- *Live forms* (done in the cleanup pass): the bug is fixed in
+  production. Forms work. The IaC for it is two idempotent scripts in
+  the source repo.
 
 **Lesson:** the same gap, hit three times in one hour:
 
@@ -304,6 +373,15 @@ works. The [comprehension-checklist](comprehension-checklist.md) now
 has items for the first and third; the second is implied by the third
 and probably should be split out as its own item ("the IaC and the
 cloud account agree on what's actually deployed").
+
+A fourth lesson surfaced once we tried to actually fix it: even when
+the architecture you sketched looks right on paper and is the obvious
+AWS-native primitive (here, public Lambda Function URLs), the cloud
+account may have undocumented opinions about whether you can use it
+that way. Don't bet a long debugging session on the first plausible
+primitive — the second-most-obvious primitive (here, API Gateway HTTP
+API in front of the Lambdas) often turns out to be both the documented
+pattern and the one that doesn't fight the account.
 
 The meta-lesson is the one this failure log is most useful for: an AI
 agent will happily generate a README that says a thing is deployed,
@@ -326,12 +404,17 @@ agent unprompted; all of them were caught by the operator's recognition
 of "this output doesn't match what I expect" — including the most
 recent one, which started as "the documentation doesn't match the
 infrastructure," became "the production behavior doesn't match the
-documentation," and finally became "the cloud account doesn't match
-the infrastructure code." That progression — three rounds of the same
-question peeling back a deeper layer of wrong each time — is the
-clearest example in this log of why the comprehension layer is the
-work, not the code generation. Each round closed in one or two
-sentences from the operator. The agent did not initiate any of them.
+documentation," became "the cloud account doesn't match the
+infrastructure code," and ended as "the AWS primitive we picked first
+won't actually serve browser POSTs through CloudFront." That
+progression — four rounds of the same question peeling back a deeper
+layer of wrong each time — is the clearest example in this log of why
+the comprehension layer is the work, not the code generation. Each
+round closed in one or two sentences from the operator. The agent did
+not initiate any of them. The bug is now closed: the four-round
+sequence ended with two new idempotent IaC scripts, deletion of the
+inert Cloudflare scaffolding, and verified 303s back from production
+for both forms.
 
 The pattern across entries: the agent produces something that runs
 without throwing an exception (or, in the most recent case, produces

@@ -47,17 +47,30 @@ form scaffolding for contact + subscribe.
 > forwarding to AWS Lambda backers." That message was written assuming
 > a Cloudflare Pages deploy that never actually happened — the site
 > shipped to AWS S3 + CloudFront (see commit `2b637b3` below for the
-> infrastructure that confirms this). The Cloudflare Pages Functions
-> under `functions/api/*.ts` are inert in production; the live form
-> handlers are the AWS Lambda functions in `lambda/{contact,subscribe}/`,
-> behind Lambda Function URLs, sending via Amazon SES.
+> infrastructure that confirms this). Worse, when the docs-cleanup pass
+> finally chased the drift down, the Cloudflare Pages Functions under
+> `functions/api/*.ts` turned out to be inert *and* the AWS Lambdas
+> they were supposed to be standing in for had never been deployed
+> either — the contact form had no working back-end of any kind from
+> launch until the cleanup pass shipped one.
+>
+> The forms now work end-to-end. The current architecture is
+> CloudFront → API Gateway HTTP API
+> (`inflection-point-advisory-forms`) → AWS Lambda
+> (`inflection-point-advisory-{contact,subscribe}`) → Amazon SES,
+> provisioned by `infrastructure/scripts/05-deploy-form-lambdas.sh` and
+> `06-front-form-lambdas-on-apigateway.sh` in the source repo. The
+> Cloudflare Pages Functions scaffolding has been deleted.
 >
 > The drift sat in the README, this curated log, and the original
-> commit message for several weeks before anyone (the operator)
-> caught it. It's logged in
+> commit message for several weeks before anyone (the operator) caught
+> it; the underlying production breakage sat there even longer. The
+> full discovery → fix story is logged in
 > [`../../method/failure-log.md`](../../method/failure-log.md) as a
-> concrete example of why the comprehension checklist needs a
-> "where does this actually deploy?" item.
+> concrete example of why the comprehension checklist needs explicit
+> items for "the IaC and the cloud account agree on what's deployed"
+> and "every user-visible interaction has been tested end-to-end
+> against production."
 
 The about page calls out that DAM Core, NatureNet DataHub, Out & About
 with Jim, this advisory site, and the LiDAR classification pipeline
